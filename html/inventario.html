@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.13.1/font/bootstrap-icons.min.css">
+  <link rel="stylesheet" href="estilo.css">
+  <title>Inventario</title>
+  
+</head>
+<body>
+
+ <div class="sidebar">
+    <div class="tooltip">
+      <button class="menu_lateral" onclick="location.href='venta.html'"><i class="bi bi-house"></i></button>
+      <span class="tooltip-text">Venta</span>
+    </div>
+    <div class="tooltip">
+      <button class="menu_lateral" ><i class="bi bi-journal-text"></i></button>
+      <span class="tooltip-text">Recetas</span>
+    </div>
+    <div class="tooltip">
+      <button class="menu_lateral"  onclick="location.href='historial.html'"><i class="bi bi-clock-history"></i></button>
+      <span class="tooltip-text">Historial</span>
+    </div>
+    <div class="tooltip">
+      <button class="menu_lateral"  onclick="location.href='inventario.html'"><i class="bi bi-clipboard-check"></i></button>
+      <span class="tooltip-text">Inventario</span>
+    </div>
+    <div class="tooltip">
+      <button class="menu_lateral"  onclick="location.href='registro.html'"><i class="bi bi-people"></i></button>
+      <span class="tooltip-text">Usuarios</span>
+    </div>
+    <div class="tooltip">
+      <button class="logout-btn" onclick="cerrarSesion()"><i class="bi bi-door-closed"></i></button>
+      <span class="tooltip-text">Cerrar Sesión</span>
+    </div>
+  </div>
+
+  <div class="main_inv">
+    <h1>Inventario</h1>
+
+    <!-- FORMULARIO -->
+    <form id="formulario-producto">
+      <h2>Añadir nuevo producto</h2>
+      <label for="id_producto">ID Producto</label>
+      <input type="text" id="id_producto" placeholder="ID Producto" required>
+      <label for="nombre_producto">Nombre del Producto</label>
+      <input type="text" id="nombre_producto" placeholder="Nombre del Producto" required>
+      <label for="pz_gr">Cantidad (pz/gr)</label>
+      <input type="number" step="any" id="pz_gr" placeholder="Cantidad (pz/gr)" required>
+      <label for="costo_unitario">Costo Unitario</label>
+      <input type="number" step="any" id="costo_unitario" placeholder="Costo Unitario" required>
+
+      <!-- Mostrar costo total dinámico -->
+      <p id="costo_total_entrada" style="font-weight: bold; font-size: 16px;">Costo Total de Entrada: $0.00</p>
+
+      <button type="submit">Agregar al Inventario</button>
+    </form>
+
+    <!-- TABLA -->
+    <div class="container">
+    <table>
+      <thead>
+        <tr>
+          <th>ID Producto</th>
+          <th>Nombre</th>
+          <th>Cantidad (pz/gr)</th>
+          <th>Costo Unitario</th>
+        </tr>
+      </thead>
+      <tbody id="inventario-body">
+        <!-- Inventario dinámico -->
+      </tbody>
+    </table>
+    </div>
+  </div>
+
+  <script>
+  function cargarInventario() {
+    fetch('obtener_inventario.php')
+      .then(res => res.json())
+      .then(data => {
+        const agrupado = {};
+
+        data.forEach(prod => {
+          const key = prod.id_producto + "_" + prod.nombre_producto;
+          const cantidad = parseFloat(prod.pz_gr);
+          const costo = parseFloat(prod.costo_unitario);
+
+          if (!agrupado[key]) {
+            agrupado[key] = {
+              id_producto: prod.id_producto,
+              nombre_producto: prod.nombre_producto,
+              pz_gr: cantidad,
+              costo_unitario: costo
+            };
+          } else {
+            agrupado[key].pz_gr += cantidad;
+            agrupado[key].costo_unitario = Math.max(agrupado[key].costo_unitario, costo);
+          }
+        });
+
+        const cuerpo = document.getElementById("inventario-body");
+        cuerpo.innerHTML = "";
+
+        // Reemplaza esta sección completa del JS
+        Object.values(agrupado).forEach(item => {
+          const fila = document.createElement("tr");
+          fila.innerHTML = `
+            <td>${item.id_producto}</td>
+            <td>${item.nombre_producto}</td>
+            <td>${item.pz_gr.toFixed(2)}</td>
+            <td>$${item.costo_unitario.toFixed(2)}</td>
+          `;
+          cuerpo.appendChild(fila);
+});
+
+      })
+      .catch(error => {
+        console.error("Error al cargar inventario:", error);
+      });
+  }
+
+  document.getElementById("formulario-producto").addEventListener("submit", function(e) {
+    e.preventDefault();
+
+    const producto = {
+  id_producto: document.getElementById("id_producto").value,
+  nombre_producto: document.getElementById("nombre_producto").value,
+  pz_gr: parseFloat(document.getElementById("pz_gr").value),
+  costo_unitario: parseFloat(document.getElementById("costo_unitario").value)
+};
+
+
+    fetch('agregar_producto.php', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(producto)
+    })
+    .then(res => res.text())
+    .then(respuesta => {
+      alert(respuesta);
+      this.reset();
+      document.getElementById("costo_total_entrada").innerText = "Costo Total de Entrada: $0.00";
+      cargarInventario();
+    })
+    .catch(err => {
+      console.error("Error al agregar producto:", err);
+      alert("Error al agregar producto.");
+    });
+  });
+
+  // Actualiza el costo total dinámicamente al escribir
+  const cantidadInput = document.getElementById("pz_gr");
+  const costoUnitarioInput = document.getElementById("costo_unitario");
+  const costoTotalEntrada = document.getElementById("costo_total_entrada");
+
+  function actualizarCostoTotal() {
+    const cantidad = parseFloat(cantidadInput.value) || 0;
+    const costo = parseFloat(costoUnitarioInput.value) || 0;
+    const total = cantidad * costo;
+    costoTotalEntrada.innerText = `Costo Total de Entrada: $${total.toFixed(2)}`;
+  }
+
+  cantidadInput.addEventListener("input", actualizarCostoTotal);
+  costoUnitarioInput.addEventListener("input", actualizarCostoTotal);
+
+  // Cargar inventario al cargar la página
+  cargarInventario();
+
+  function cerrarSesion() {
+  // Elimina datos de sesión si los estás usando (opcional)
+  sessionStorage.clear();
+  localStorage.clear();
+
+  // Redirige y evita que el usuario pueda regresar
+  window.location.replace('login.html');
+}
+
+  </script>
+</body>
+</html>
